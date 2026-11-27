@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DEUS Engine Lab</title>
+<body style="background:#101216;color:#e9edf2;font:16px system-ui;padding:24px"><h1>DEUS / ENGINE LAB</h1><p id="status">Loading V1.1.2.0001…</p><script>
+(async()=>{
+try {
+const response=await fetch('./DEUS_Engine_Lab_V1.1.1.0001.html',{cache:'no-cache'});
+if(!response.ok)throw Error('Original engine file unavailable: '+response.status);
+let source=await response.text();
+const anchor='const defs=groups.flatMap(g=>g[1]);';
+const warningAnchor='let w=[];if(s.cams';
+if(!source.includes(anchor)||!source.includes(warningAnchor))throw Error('Original source does not match the expected V1.1.1 layout.');
+const patch=`
+groups.splice(2,0,["Block structural integrity",[["construction","Block construction","select","Factory casting",["Factory casting","Aftermarket casting","Sleeved block","Custom billet block"]],["boreSpacing","Custom bore spacing (mm; 0 = preset)","number",0,0,250,.1],["wallThickness","Original measured minimum wall (mm; 0 = unknown)","number",0,0,30,.1],["minWall","Minimum target wall (mm)","number",3,1,15,.1]]]);
+const blockDatabase={"Honda K20A":[86,94,.5],"Toyota 2JZ-GTE":[86,91,1],"GM 3800 L26":[96.52,107.95,.76],"GM LS3":[103.25,111.76,.5],"Chrysler 440 RB":[109.73,121.92,1.52]};
+function evaluateBlock(x){const f=blockDatabase[x.preset],w=[],spacing=x.boreSpacing>0?x.boreSpacing:(x.construction==="Factory casting"?f?.[1]??null:null),overbore=f?x.bore-f[0]:null,bridge=spacing===null?null:spacing-x.bore,wall=x.wallThickness>0&&overbore!==null&&x.construction==="Factory casting"?x.wallThickness-Math.max(0,overbore)/2:null;
+if(f&&x.construction==="Factory casting"&&overbore>f[2])w.push("BLOCK WARNING: Overbore exceeds provisional screening limit; consider sleeves or custom block.");
+if(bridge===null)w.push("Block geometry unknown: enter bore spacing.");else if(bridge<=0)w.push("CRITICAL: Adjacent bores touch or overlap.");else if(bridge<3)w.push("CRITICAL: Extremely narrow inter-bore bridge.");else if(bridge<5)w.push("BLOCK WARNING: Reduced inter-bore bridge.");
+if(wall===null)w.push("Cylinder wall integrity unverified.");else if(wall<x.minWall)w.push("BLOCK WARNING: Estimated wall below selected minimum.");
+return {spacing,overbore,bridge,wall,warnings:w};}
+`;
+source=source.replace(anchor,patch+anchor).replace(warningAnchor,`let b=evaluateBlock(s),w=[...b.warnings];for(let [n,v] of [["Factory overbore",b.overbore],["Cylinder bore spacing",b.spacing],["Inter-bore bridge",b.bridge],["Estimated cylinder wall",b.wall]]){let d=el("div");d.className="metric";d.append(el("strong",v===null?"Unknown":v.toFixed(2)+" mm"),el("span",n));m.append(d)}if(s.cams`).replace("s.name=s.preset;","s.name=s.preset;s.construction='Factory casting';s.boreSpacing=0;s.wallThickness=0;").replaceAll('1.1.1.0001','1.1.2.0001').replace('No knock, fatigue','Block spacing and overbore limits are provisional assumptions, not verified machining specifications. Inter-bore bridge is not measured wall thickness. No knock, fatigue');
+document.open();document.write(source);document.close();
+}catch(error){document.getElementById('status').textContent='Unable to load Engine Lab: '+error.message;}
+})();
+</script></body></html>
